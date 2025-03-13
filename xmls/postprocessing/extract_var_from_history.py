@@ -26,6 +26,7 @@ python extract_var_from_history.py example_extract_var.json
 ### Example example_extract_var.json Configuration:
 {
     "output_directory": "/collab1/data_untrusted/xxx/output_dir",
+    "vftmp_directory": "/vftmp/XXXXX/untar_dir",
     "archive_directory": "/archive/.../history",
     "archive_subexp_name": "ocean_month",
     "variable_names": ["tob", "tos"],
@@ -35,6 +36,7 @@ python extract_var_from_history.py example_extract_var.json
 
 #### Explanation of example_extract_var.json Parameters:
 - output_directory (str): Directory where the extracted NetCDF files will be saved.
+- vftmp_directory (str): Directory where the temperary extracted netcdf file will be stored.
 - archive_directory (str): Directory containing the history tar files.
 - archive_subexp_name (str): Prefix used in the model output files (e.g., "ocean_month").
 - variable_names (list of str): List of variable names to extract.
@@ -87,6 +89,8 @@ def extract_variable(
     ----------
     archive_dir : str
         the history archive path
+    vftmp_dir : str
+        the temperary data store directory path
     output_dir : str
         the output directory path
     subexp_name : str
@@ -107,69 +111,85 @@ def extract_variable(
             'concatenate file %s exist, skipping...',output_var_concat_filename
         )
     else:
+        missing_year = []
         for yr in range(start_year, end_year+1):
             # process tracking in log file
             logging.info(
                 '===== Processing year %4d ...',yr
             )
 
-            # specify tar file
-            tar_path = Path(f"{archive_dir}/{yr:04d}0101.nc.tar")
-            # specify specific nc file to extract in tar file
-            file_to_extract = f"{yr:04d}0101.{subexp_name}.nc"
-
-            # create vftmp directory if not exist
-            if not os.path.exists(vftmp_dir):
-                os.makedirs(vftmp_dir)
-
-            # create output directory if not exist
-            if not os.path.exists(output_dir):
-                os.makedirs(output_dir)
-
-            # getting tarball out of the tape
-            subprocess.run(
-                ["dmget", tar_path],
-                check=True
-            )
-
-            # extract file from a tarball
-            output_filename = os.path.join(vftmp_dir,file_to_extract)
-            if os.path.isfile(output_filename):
+            files = glob.glob(f"{archive_dir}/{yr:04d}????.nc.tar")
+            if len(files) == 0:
                 logging.warning(
-                    'extracted tar file %s exist, skipping...',output_filename
+                    '%i year for the tar file does not exist. skipping...',yr
                 )
+                missing_year.append(yr)
             else:
-                logging.info(
-                    '(tar -xf) extracting tar file %s ...',output_filename
-                )
-                # untar single file based on subexp_name
-                subprocess.run(
-                    ["tar", "-xf", tar_path, "-C", Path(vftmp_dir), './'+file_to_extract],
-                    check=True
-                )
+                for file in files:
+                    # find tar file name
+                    tarfile_name = file.split('/')[-1]
+                    # find month day name
+                    year_month_day = tarfile_name.split('.')[0]
+                    # specify tar file
+                    tar_path = Path(file)
+                    # specify specific nc file to extract in tar file
+                    file_to_extract = f"{year_month_day}.{subexp_name}.nc"
 
-            # extract single variable from a netCDF file using ncks
-            output_var_filename = os.path.join(output_dir,f'{subexp_name}.{yr}.{var}.nc')
-            if os.path.isfile(output_var_filename):
-                logging.warning(
-                    'extracted variable file %s exist, skipping...',output_var_filename
-                )
-            else:
-                logging.info(
-                    '(ncks) extracting variable %s ...',output_var_filename
-                )
-                try:
+                    # create vftmp directory if not exist
+                    if not os.path.exists(vftmp_dir):
+                        os.makedirs(vftmp_dir)
+
+                    # create output directory if not exist
+                    if not os.path.exists(output_dir):
+                        os.makedirs(output_dir)
+
+                    # getting tarball out of the tape
                     subprocess.run(
-                        ["ncks", "-O", "-h", "-v", var, output_filename, output_var_filename], check=True
+                        ["dmget", tar_path],
+                        check=True
                     )
-                except FileNotFoundError :
-                    logging.error(
-                        'NCO module might not be loaded. Exist execution of variable extraction.'
+
+                    # extract file from a tarball
+                    output_filename = os.path.join(vftmp_dir,file_to_extract)
+                    if os.path.isfile(output_filename):
+                        logging.warning(
+                            'extracted tar file %s exist, skipping...',output_filename
+                        )
+                    else:
+                        logging.info(
+                            '(tar -xf) extracting tar file %s ...',output_filename
+                        )
+                        # untar single file based on subexp_name
+                        subprocess.run(
+                            ["tar", "-xf", tar_path, "-C", Path(vftmp_dir), './'+file_to_extract],
+                            check=True
+                        )
+
+                    # extract single variable from a netCDF file using ncks
+                    output_var_filename = os.path.join(
+                        output_dir,f'{subexp_name}.{year_month_day}.{var}.nc'
                     )
-                    sys.exit('Script execution stopped due to missing NCO module')
+                    if os.path.isfile(output_var_filename):
+                        logging.warning(
+                            'extracted variable file %s exist, skipping...',output_var_filename
+                        )
+                    else:
+                        logging.info(
+                            '(ncks) extracting variable %s ...',output_var_filename
+                        )
+                        try:
+                            subprocess.run(
+                                ["ncks", "-O", "-h", "-v", var, output_filename, output_var_filename],
+                                check=True
+                            )
+                        except FileNotFoundError :
+                            logging.error(
+                                'NCO module might not be loaded. Exist execution of variable extraction.'
+                            )
+                            sys.exit('Script execution stopped due to missing NCO module')
 
         # find all files to concatenate
-        output_var_filename_wildcard = os.path.join(output_dir,f'{subexp_name}.????.{var}.nc')
+        output_var_filename_wildcard = os.path.join(output_dir,f'{subexp_name}.????????.{var}.nc')
         allfiles = glob.glob(output_var_filename_wildcard)
         
         if len(allfiles) == 0:
@@ -186,6 +206,10 @@ def extract_variable(
             logging.info(
                 'concatenated file at %s ...',output_var_concat_filename
             )
+            if len(missing_year) != 0:
+                logging.warning(
+                    'The following years %s are not in the concatenate file due to not existing.',missing_year
+                )
 
             # remove individual files
             for file in allfiles:
