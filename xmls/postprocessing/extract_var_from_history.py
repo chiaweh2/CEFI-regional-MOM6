@@ -56,6 +56,13 @@ import logging
 import subprocess
 from pathlib import Path
 
+# utilize the HSMGet wrapper
+# from diagnostics.physics.plot_common import HSMGet
+sys.path.append("../../diagnostics/physics")
+from plot_common import HSMGet
+
+
+
 def setup_logging(logfile):
     """Set up logging to write messages to a log file."""
     logging.basicConfig(
@@ -71,7 +78,6 @@ def load_config(json_file):
 
 def extract_variable(
     archive_dir:str,
-    vftmp_dir:str,
     output_dir:str,
     subexp_name:str,
     var:str,
@@ -118,35 +124,19 @@ def extract_variable(
             # specify specific nc file to extract in tar file
             file_to_extract = f"{yr:04d}0101.{subexp_name}.nc"
 
-            # create vftmp directory if not exist
-            if not os.path.exists(vftmp_dir):
-                os.makedirs(vftmp_dir)
-
             # create output directory if not exist
             if not os.path.exists(output_dir):
                 os.makedirs(output_dir)
 
-            # getting tarball out of the tape
-            subprocess.run(
-                ["dmget", tar_path],
-                check=True
+            # getting tarball out of the tape or get from ptmp if frepp has been performed
+            #  the process extract single file out of a tar file
+            hsmget = HSMGet()
+            vftmp_file_location = hsmget(
+                Path(f'{tar_path}/{yr:04d}0101.nc/{file_to_extract}')
             )
-
-            # extract file from a tarball
-            output_filename = os.path.join(vftmp_dir,file_to_extract)
-            if os.path.isfile(output_filename):
-                logging.warning(
-                    'extracted tar file %s exist, skipping...',output_filename
-                )
-            else:
-                logging.info(
-                    '(tar -xf) extracting tar file %s ...',output_filename
-                )
-                # untar single file based on subexp_name
-                subprocess.run(
-                    ["tar", "-xf", tar_path, "-C", Path(vftmp_dir), './'+file_to_extract],
-                    check=True
-                )
+            logging.info(
+                '(hsmget) getting single file to %s ...',vftmp_file_location
+            )
 
             # extract single variable from a netCDF file using ncks
             output_var_filename = os.path.join(output_dir,f'{subexp_name}.{yr}.{var}.nc')
@@ -160,7 +150,8 @@ def extract_variable(
                 )
                 try:
                     subprocess.run(
-                        ["ncks", "-O", "-h", "-v", var, output_filename, output_var_filename], check=True
+                        ["ncks", "-O", "-h", "-v", var, vftmp_file_location, output_var_filename],
+                        check=True
                     )
                 except FileNotFoundError :
                     logging.error(
@@ -171,7 +162,7 @@ def extract_variable(
         # find all files to concatenate
         output_var_filename_wildcard = os.path.join(output_dir,f'{subexp_name}.????.{var}.nc')
         allfiles = glob.glob(output_var_filename_wildcard)
-        
+
         if len(allfiles) == 0:
             logging.error(
                 'single variable files do not exit'
@@ -215,7 +206,6 @@ if __name__ == "__main__":
         # Load config
         config = load_config(config_file)
         output_directory = config["output_directory"]
-        vftmp_directory = config["vftmp_directory"]
         archive_directory = config["archive_directory"]
         archive_subexp_name = config["archive_subexp_name"]
         variable_names = config["variable_names"]
@@ -230,7 +220,6 @@ if __name__ == "__main__":
             )
             extract_variable(
                 archive_dir = archive_directory,
-                vftmp_dir = vftmp_directory,
                 output_dir = output_directory,
                 subexp_name = archive_subexp_name,
                 var = variable,
