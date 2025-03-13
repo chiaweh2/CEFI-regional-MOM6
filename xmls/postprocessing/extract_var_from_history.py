@@ -26,6 +26,7 @@ python extract_var_from_history.py example_extract_var.json
 ### Example example_extract_var.json Configuration:
 {
     "output_directory": "/collab1/data_untrusted/xxx/output_dir",
+    "vftmp_directory": "/vftmp/XXXXX/untar_dir",
     "archive_directory": "/archive/.../history",
     "archive_subexp_name": "ocean_month",
     "variable_names": ["tob", "tos"],
@@ -35,6 +36,7 @@ python extract_var_from_history.py example_extract_var.json
 
 #### Explanation of example_extract_var.json Parameters:
 - output_directory (str): Directory where the extracted NetCDF files will be saved.
+- vftmp_directory (str): Directory where the temperary extracted netcdf file will be stored.
 - archive_directory (str): Directory containing the history tar files.
 - archive_subexp_name (str): Prefix used in the model output files (e.g., "ocean_month").
 - variable_names (list of str): List of variable names to extract.
@@ -87,6 +89,8 @@ def extract_variable(
     ----------
     archive_dir : str
         the history archive path
+    vftmp_dir : str
+        the temperary data store directory path
     output_dir : str
         the output directory path
     subexp_name : str
