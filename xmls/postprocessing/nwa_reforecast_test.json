@@ -1,0 +1,9 @@
+{
+    "output_directory": "/collab1/data_untrusted/Chia-wei.Hsu/test_output",
+    "vftmp_directory": "/vftmp/Chia-wei.Hsu/test_untar",
+    "archive_directory": "/archive/Andrew.C.Ross/fre/NWA/2024_09/NWA12_cobalt_forecast_2024_09_2003-12-e01/gfdl.ncrc6-intel23-prod/history",
+    "archive_subexp_name": "ocean_month",
+    "variable_names": ["tob", "tos"],
+    "start_year": 2003,
+    "end_year": 2003
+}

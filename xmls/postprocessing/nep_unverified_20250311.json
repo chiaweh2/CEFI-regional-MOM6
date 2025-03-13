@@ -2,8 +2,8 @@
     "output_directory": "/collab1/data_untrusted/Chia-wei.Hsu/test_output",
     "vftmp_directory": "/vftmp/Chia-wei.Hsu/test_untar",
     "archive_directory": "/archive/e1n/fre/cefi/NEP/2024_11/NEP_nudge_spinup/gfdl.ncrc6-intel23-repro/history",
-    "archive_subexp_name": "ocean_month",
-    "variable_names": ["tob", "tos"],
+    "archive_subexp_name": "ocean_daily",
+    "variable_names": ["tob"],
     "start_year": 1993,
     "end_year": 2024
 }
