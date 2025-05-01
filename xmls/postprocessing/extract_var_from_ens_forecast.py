@@ -50,6 +50,15 @@ def concat_files(
     files:list,
     output_concat_filename:str
 ):
+    """concat all time for decadal experiment
+
+    Parameters
+    ----------
+    files : list
+        list of file name to concat
+    output_concat_filename : str
+        output filename for the concat data
+    """
     if len(files) == 0:
         logging.error(
             'single variable files do not exit'
@@ -70,7 +79,7 @@ def concat_files(
             os.remove(file)
         logging.info('remove individual files')
 
-    return 
+    return
 
 def extract_tar_ncks_var(
     tarball:str,
@@ -80,6 +89,23 @@ def extract_tar_ncks_var(
     output_store_filename:str,
     variable_name:str
 ):
+    """extract the file from tarball and extract the variable from the file
+
+    Parameters
+    ----------
+    tarball : str
+        tarball file path
+    tarball_extract_filename : str
+        filename inside the tarball
+    temp_store_dir : str
+        temporary store dir
+    output_store_dir : str
+        output file dir
+    output_store_filename : str
+        output filename
+    variable_name : str
+        variable name to extract from the file inside the tarball
+    """
     # create vftmp directory if not exist
     if not os.path.exists(temp_store_dir):
         os.makedirs(temp_store_dir)
@@ -137,11 +163,11 @@ def extract_variable_ens_forecast(
     vftmp_dir:str,
     output_dir:str,
     subexp_name:str,
+    experiment_type:str,
     var:str,
+    ensemble_member_num:int,
     initialization_year:int,
-    initialization_month:int,
-    ensemble_member_num:int, 
-    experiment_type:str
+    initialization_month:int=None
 ):
     """
     1. extract only the subexp netcdf file (use tar -tf file.tar to check availability)
@@ -164,54 +190,66 @@ def extract_variable_ens_forecast(
     ensemble_member_num : int
         the ensemble member number
     """
+    # for decadal experiment the initialization is always Jan
+    if initialization_month is None and experiment_type == 'decadal':
+        initialization_month = 1
+    elif initialization_month is None and experiment_type != 'decadal':
+        raise IOError('initialization month not provided')
+
+    # output concat filenames
+    output_var_concat_filename = os.path.join(
+        output_dir,
+        f'{experiment_type}.{subexp_name}.i{initialization_year:04d}{initialization_month:02d}.e{ensemble_member_num:02d}.{var}.nc'
+    )
 
     # skip creating concat file if already exist
     if os.path.isfile(output_var_concat_filename):
         logging.warning(
             'concatenate file %s exist, skipping...',output_var_concat_filename
         )
-    else:
-        # process tracking in log file
-        logging.info(
-            '===== Processing initial year %4d initial month %2d ensamble_number %2d...',
-            initialization_year,
-            initialization_month,
-            ensemble_member_num
-        )
-        if experiment_type == 'decadel':
-            for yr in range(initialization_year, initialization_year+10):
-                # specify tar file
-                tar_path = Path(f"{archive_dir}/{yr:04d}0101.nc.tar")
-                # specify specific nc file to extract in tar file (same file name for vftmp temp store)
-                file_to_extract = f"{yr:04d}0101.{subexp_name}.nc"
-                # specify output nc file
-                output_filename = f'{experiment_type}.{subexp_name}.i{initialization_year}.e{ensemble_member_num}.{yr}.{var}.nc'
+        return
 
-                extract_tar_ncks_var(
-                    tarball = tar_path,
-                    tarball_extract_filename = file_to_extract,
-                    temp_store_dir = vftmp_dir,
-                    output_store_dir = output_dir,
-                    output_store_filename = output_filename,
-                    variable_name = var
-                )
-
-            # find all files to concatenate lead to one
-            output_var_filename_wildcard = os.path.join(output_dir,f'{experiment_type}.{subexp_name}.i{initialization_year}.e{ensemble_member_num}.????.{var}.nc')
-            allfiles = glob.glob(output_var_filename_wildcard)
-            output_var_concat_filename = os.path.join(
-                output_dir,
-                f'{experiment_type}.{subexp_name}.i{initialization_year}.e{ensemble_member_num}.{var}.nc'
+    # process tracking in log file
+    logging.info(
+        '===== Processing initial year %4d initial month %2d ensamble_number %2d...',
+        initialization_year,
+        initialization_month,
+        ensemble_member_num
+    )
+    if experiment_type == 'decadal':
+        for yr in range(initialization_year, initialization_year+10):
+            # specify tar file
+            tar_path = Path(f"{archive_dir}/{yr:04d}0101.nc.tar")
+            # specify specific nc file to extract in tar file (same file name for vftmp temp store)
+            file_to_extract = f"{yr:04d}0101.{subexp_name}.nc"
+            # specify output nc file (not concat)
+            output_filename = (
+                f'{experiment_type}.{subexp_name}.i{initialization_year:04d}{initialization_month:02d}.e{ensemble_member_num:02d}.{yr}.{var}.nc'
             )
-            concat_files(allfiles,output_var_concat_filename)
-        
 
+            # extract single ens, single variable, single year (10years in total)
+            extract_tar_ncks_var(
+                tarball = tar_path,
+                tarball_extract_filename = file_to_extract,
+                temp_store_dir = vftmp_dir,
+                output_store_dir = output_dir,
+                output_store_filename = output_filename,
+                variable_name = var
+            )
+
+        # find all files to concatenate time (10 years in total) for single initialization
+        output_var_filename_wildcard = os.path.join(
+            output_dir,
+            f'{experiment_type}.{subexp_name}.i{initialization_year:04d}{initialization_month:02d}.e{ensemble_member_num:02d}.????.{var}.nc'
+        )
+        allfiles = glob.glob(output_var_filename_wildcard)
+        concat_files(allfiles,output_var_concat_filename)
 
     return
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        print("Usage: python extract_var_from_history.py <config_file.json>")
+        print("Usage: python extract_var_from_ens_forecast.py <config_file.json>")
         sys.exit(1)
 
     config_file = sys.argv[1]
@@ -231,18 +269,29 @@ if __name__ == "__main__":
         config = load_config(config_file)
         output_directory = config["output_directory"]
         vftmp_directory = config["vftmp_directory"]
-        archive_directory = config["archive_directory"]
+        archive_directory_format = config["archive_directory_format"]
         archive_subexp_name = config["archive_subexp_name"]
         variable_names = config["variable_names"]
         initialization_year_range = config["initialization_year_range"]
-        initialization_month = int(config["initialization_month"])
+        initialization_mon = int(config["initialization_month"])
         ensemble_members = config["ensemble_members"]
         forecast_type = config["forecast_type"]
 
         # run extract variable
-        for init_year in initialization_year_range:
-            for variable in variable_names:
+        for variable in variable_names:
+            for init_year in initialization_year_range:
                 for ens in ensemble_members:
+                    # process archive path based on format
+                    archive_directory = archive_directory_format.replace("YYYY",f"{init_year:04d}")
+                    archive_directory = archive_directory.replace("eEE",f"e{ens}")
+
+                    # check if the archive exist if not skip to next ens
+                    if not os.path.exists(archive_directory):
+                        logging.warning(
+                            '=== Archive %s does not exist skipping...',archive_directory
+                        )
+                        continue
+
                     # process tracking in log file
                     logging.info(
                         '=== Processing variable %s ...',variable
@@ -254,7 +303,7 @@ if __name__ == "__main__":
                         subexp_name = archive_subexp_name,
                         var = variable,
                         initialization_year= init_year,
-                        initialization_month= initialization_month,
+                        initialization_month= initialization_mon,
                         ensemble_member_num= ens,
                         experiment_type=forecast_type
                     )

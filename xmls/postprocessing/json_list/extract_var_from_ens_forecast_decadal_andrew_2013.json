@@ -3,9 +3,18 @@
     "vftmp_directory": "/vftmp/Chia-wei.Hsu/untar_dir",
     "archive_directory_format": "/archive/acr/fre/NWA/2023_02_prod/NWA12_physics_2023_prod_SPEAR_h14_YYYY_eEE/gfdl.ncrc5-intel22-prod/history",
     "archive_subexp_name": "ocean_month",
-    "variable_names": ["tos","tob"],
-    "initialization_year_range": [1965, 2022],
+    "variable_names": [
+        "tos"
+    ],
+    "initialization_year_range": [
+        2013
+    ],
     "initialization_month": "1",
-    "ensemble_members": [7,8,9,10],
+    "ensemble_members": [
+        7,
+        8,
+        9,
+        10
+    ],
     "forecast_type": "decadal"
 }
