@@ -1,14 +1,18 @@
 import json
 from pathlib import Path
 
+# base_config_name = "extract_var_from_ens_forecast_decadal_andrew"
+# output_json_dir = 'json_list'
 base_config_name = "extract_var_from_ens_forecast_deacadal_vimal"
+output_json_dir = 'v_json_list'
+
 
 # Load the base config
 with open(f"{base_config_name}.json") as f:
     base_config = json.load(f)
 
 # Output directory (optional)
-output_dir = Path("/home/Chia-wei.Hsu/CEFI-regional-MOM6/xmls/postprocessing/")
+output_dir = Path(f"/home/Chia-wei.Hsu/CEFI-regional-MOM6/xmls/postprocessing/{output_json_dir}/")
 output_dir.mkdir(exist_ok=True)
 
 # Loop through years

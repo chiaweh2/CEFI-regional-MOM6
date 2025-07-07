@@ -1,0 +1,12 @@
+{
+    "output_directory": "/collab1/data_untrusted/Chia-wei.Hsu/ss_rfcast_output_dir",
+    "vftmp_directory": "/vftmp/Chia-wei.Hsu/untar_dir",
+    "archive_directory_format": "/archive/acr/fre/NWA/2023_04/NWA12_forecast_2023-04_YYYY-MM-eEE/gfdl.ncrc5-intel22-prod/history",
+    "archive_subexp_name": "ocean_month",
+    "variable_names": ["tos"],
+    "initialization_year_range": [2007, 2007],
+    "initialization_month": "3",
+    "ensemble_members": [1,2,3,4,5,6,7,8,9,10],
+    "forecast_type": "seasonal",
+    "release_tag": "r20240213"
+}

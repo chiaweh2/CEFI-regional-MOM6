@@ -217,6 +217,7 @@ def extract_variable_ens_forecast(
         ensemble_member_num
     )
     if experiment_type == 'decadal':
+        # for decadal file arrangement (single archive path 10 different history out start from Jan of each year)
         for yr in range(initialization_year, initialization_year+10):
             # specify tar file
             tar_path = Path(f"{archive_dir}/{yr:04d}0101.nc.tar")
@@ -244,6 +245,28 @@ def extract_variable_ens_forecast(
         )
         allfiles = glob.glob(output_var_filename_wildcard)
         concat_files(allfiles,output_var_concat_filename)
+    
+    elif experiment_type == 'seasonal':
+        # for seasonal file arrangement (single archive path 1 history for each initial year and month)
+        yr = initialization_year
+        mon = initialization_month
+        
+        # specify tar file
+        tar_path = Path(f"{archive_dir}/{yr:04d}{mon:02d}01.nc.tar")
+        # specify specific nc file to extract in tar file (same file name for vftmp temp store)
+        file_to_extract = f"{yr:04d}{mon:02d}01.{subexp_name}.nc"
+        # specify output nc file (not concat)
+        output_filename = output_var_concat_filename
+
+        # extract single ens, single variable, single year
+        extract_tar_ncks_var(
+            tarball = tar_path,
+            tarball_extract_filename = file_to_extract,
+            temp_store_dir = vftmp_dir,
+            output_store_dir = output_dir,
+            output_store_filename = output_filename,
+            variable_name = var
+        )
 
     return
 
@@ -276,14 +299,20 @@ if __name__ == "__main__":
         initialization_mon = int(config["initialization_month"])
         ensemble_members = config["ensemble_members"]
         forecast_type = config["forecast_type"]
+        release_tag = config["release_tag"]
 
         # run extract variable
         for variable in variable_names:
             for init_year in initialization_year_range:
                 for ens in ensemble_members:
+                    vftmp_directory_sub = vftmp_directory+f"_{forecast_type}_{init_year}_{initialization_mon}_{ens}_{release_tag}"
                     # process archive path based on format
                     archive_directory = archive_directory_format.replace("YYYY",f"{init_year:04d}")
-                    archive_directory = archive_directory.replace("eEE",f"e{ens}")
+                    archive_directory = archive_directory.replace("MM",f"{initialization_mon:02d}")
+                    if "eEE" in archive_directory:
+                        archive_directory = archive_directory.replace("eEE",f"e{ens:02d}")
+                    elif "eE" in archive_directory:
+                        archive_directory = archive_directory.replace("eE",f"e{ens}")
 
                     # check if the archive exist if not skip to next ens
                     if not os.path.exists(archive_directory):
@@ -298,7 +327,7 @@ if __name__ == "__main__":
                     )
                     extract_variable_ens_forecast(
                         archive_dir = archive_directory,
-                        vftmp_dir = vftmp_directory,
+                        vftmp_dir = vftmp_directory_sub,
                         output_dir = output_directory,
                         subexp_name = archive_subexp_name,
                         var = variable,
